@@ -1,3 +1,4 @@
+using FeedBuilder.Properties;
 using System;
 using System.Collections;
 using System.Collections.Specialized;
