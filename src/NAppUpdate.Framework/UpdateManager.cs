@@ -8,6 +8,7 @@ using NAppUpdate.Framework.FeedReaders;
 using NAppUpdate.Framework.Sources;
 using NAppUpdate.Framework.Tasks;
 using NAppUpdate.Framework.Utils;
+using System.Threading.Tasks;
 
 namespace NAppUpdate.Framework
 {
@@ -123,6 +124,15 @@ namespace NAppUpdate.Framework
 			CheckForUpdates(UpdateSource);
 		}
 
+        /// <summary>
+        /// Check for updates asynchronously
+        /// </summary>
+        /// <param name="source">Update source to use</param>
+        public Task CheckForUpdatesAsync(IUpdateSource source=null)
+        {
+            return Task.Run(() => CheckForUpdates(source ?? UpdateSource));
+        }
+
 		/// <summary>
 		/// Check for updates synchronouly
 		/// </summary>
@@ -216,6 +226,15 @@ namespace NAppUpdate.Framework
 		#endregion
 
 		#region Step 2 - Prepare to execute update tasks
+
+        /// <summary>
+        /// Prepare updates asynchronously
+        /// </summary>
+        /// <returns></returns>
+        public Task PrepareUpdatesAsync()
+        {
+            return Task.Run(()=>PrepareUpdates());
+        }
 
 		/// <summary>
 		/// Prepare updates synchronously
