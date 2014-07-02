@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NAppUpdate.Framework.Updater;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -8,7 +9,7 @@ using System.Windows.Forms;
 
 namespace NAppUpdate.Updater
 {
-    public partial class ConsoleForm : Form
+    public partial class ConsoleForm : Form, IUpdaterDisplay
     {
         public ConsoleForm()
         {
@@ -20,6 +21,7 @@ namespace NAppUpdate.Updater
         {
             rtbConsole.Clear();
         }
+
 
         public void WriteLine()
         {
@@ -64,6 +66,11 @@ namespace NAppUpdate.Updater
         {
             this.KeyPress -= ConsoleForm_KeyPress;
             _keyPresses++;
+        }
+
+        public void WaitForClose()
+        {
+            this.ReadKey();
         }
 
     }

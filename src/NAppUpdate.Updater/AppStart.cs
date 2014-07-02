@@ -8,6 +8,7 @@ using NAppUpdate.Framework;
 using NAppUpdate.Framework.Common;
 using NAppUpdate.Framework.Tasks;
 using NAppUpdate.Framework.Utils;
+using NAppUpdate.Framework.Updater;
 
 namespace NAppUpdate.Updater
 {
@@ -15,7 +16,7 @@ namespace NAppUpdate.Updater
 	{
 		private static ArgumentsParser _args;
 		private static Logger _logger;
-		private static ConsoleForm _console;
+		private static IUpdaterDisplay _console;
 
 		private static void Main()
 		{
@@ -185,7 +186,7 @@ namespace NAppUpdate.Updater
 					}
 					_console.WriteLine();
 					_console.WriteLine("Press any key or close this window to exit.");
-					_console.ReadKey();
+					_console.WaitForClose();
 				}
 				if (!string.IsNullOrEmpty(tempFolder)) SelfCleanUp(tempFolder);
 				Application.Exit();
