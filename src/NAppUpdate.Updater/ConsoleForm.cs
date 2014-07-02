@@ -94,5 +94,11 @@ namespace NAppUpdate.Updater
             this.ReadKey();
         }
 
+
+
+        public void ReportProgress(Framework.Common.UpdateProgressInfo currentStatus)
+        {
+            
+        }
     }
 }

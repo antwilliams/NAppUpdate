@@ -173,13 +173,27 @@ namespace NAppUpdate.Updater
 					Log("\tExecuting...");
 
 					// TODO: Better handling on failure: logging, rollbacks
-					try {
-						t.ExecutionStatus = t.Execute(true);
-					} catch (Exception ex) {
-						Log(ex);
-						updateSuccessful = false;
-						t.ExecutionStatus = TaskExecutionStatus.Failed;
-					}
+                    try
+                    {
+                        if (_console != null)
+                        {
+                            t.ProgressDelegate += _console.ReportProgress;
+                        }
+                        t.ExecutionStatus = t.Execute(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(ex);
+                        updateSuccessful = false;
+                        t.ExecutionStatus = TaskExecutionStatus.Failed;
+                    }
+                    finally
+                    {
+                        if (_console != null)
+                        {
+                            t.ProgressDelegate -= _console.ReportProgress;
+                        }
+                    }
 
 					if (t.ExecutionStatus == TaskExecutionStatus.Successful) continue;
 					Log("\tTask execution failed");

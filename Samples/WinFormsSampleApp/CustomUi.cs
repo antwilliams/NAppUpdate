@@ -53,5 +53,11 @@ namespace WinFormsSampleApp
         {
             get { return true; }
         }
+
+
+        public void ReportProgress(NAppUpdate.Framework.Common.UpdateProgressInfo currentStatus)
+        {
+            
+        }
     }
 }

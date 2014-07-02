@@ -43,5 +43,11 @@ namespace NAppUpdate.Framework.Updater
         /// Wait for the user to dismiss the dialog
         /// </summary>
         void WaitForClose();
+
+        /// <summary>
+        /// Report the progress of a task
+        /// </summary>
+        /// <param name="currentStatus">The current status</param>
+        void ReportProgress(NAppUpdate.Framework.Common.UpdateProgressInfo currentStatus);
     }
 }
