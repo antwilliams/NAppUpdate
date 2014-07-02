@@ -96,6 +96,34 @@ namespace NAppUpdate.Framework
 		private volatile bool _isWorking;
 
 		#region Progress reporting
+		public event EventHandler PrepareStarted;
+		public event EventHandler PrepareComplete;
+		public event EventHandler ApplyStarted;
+		public event EventHandler ApplyComplete;
+
+		private void OnPrepareStarted(object sender, EventArgs e)
+		{
+			if (PrepareStarted != null)
+				PrepareStarted(sender, e);
+		}
+
+		private void OnPrepareComplete(object sender, EventArgs e)
+		{
+			if (PrepareComplete != null)
+				PrepareComplete(sender, e);
+		}
+
+		private void OnApplyStarted(object sender, EventArgs e)
+		{
+			if (ApplyStarted != null)
+				ApplyStarted(sender, e);
+		}
+
+		private void OnApplyComplete(object sender, EventArgs e)
+		{
+			if (ApplyComplete != null)
+				ApplyComplete(sender, e);
+		}
 
 		public event ReportProgressDelegate ReportProgress;
 		private void TaskProgressCallback(UpdateProgressInfo currentStatus, IUpdateTask task)
@@ -185,19 +213,19 @@ namespace NAppUpdate.Framework
 
 			// Use a thread pool thread to perform the operation
 			ThreadPool.QueueUserWorkItem(o =>
-			                             	{
-			                             		try
-			                             		{
-			                             			// Perform the operation; if sucessful set the result
-			                             			CheckForUpdates(source ?? UpdateSource);
-			                             			ar.SetAsCompleted(null, false);
-			                             		}
-			                             		catch (Exception e)
-			                             		{
-			                             			// If operation fails, set the exception
-			                             			ar.SetAsCompleted(e, false);
-			                             		}
-			                             	}, ar);
+											{
+												try
+												{
+													// Perform the operation; if sucessful set the result
+													CheckForUpdates(source ?? UpdateSource);
+													ar.SetAsCompleted(null, false);
+												}
+												catch (Exception e)
+												{
+													// If operation fails, set the exception
+													ar.SetAsCompleted(e, false);
+												}
+											}, ar);
 
 			return ar;  // Return the IAsyncResult to the caller
 		}
@@ -263,30 +291,38 @@ namespace NAppUpdate.Framework
 					{
 						Logger.Log("Using existing Temp directory {0}", Config.TempFolder);
 					}
-
-					foreach (var task in UpdatesToApply)
+					try
 					{
-						if (ShouldStop)
-							throw new UserAbortException();
+						OnPrepareStarted(this, EventArgs.Empty);
 
-						var t = task;
-						task.ProgressDelegate += status => TaskProgressCallback(status, t);
-
-						try
+						foreach (var task in UpdatesToApply)
 						{
-							task.Prepare(UpdateSource);
-						}
-						catch (Exception ex)
-						{
-							task.ExecutionStatus = TaskExecutionStatus.FailedToPrepare;
-							Logger.Log(ex);
-							throw new UpdateProcessFailedException("Failed to prepare task: " + task.Description, ex);
+							if (ShouldStop)
+								throw new UserAbortException();
+
+							var t = task;
+							task.ProgressDelegate += status => TaskProgressCallback(status, t);
+
+							try
+							{
+								task.Prepare(UpdateSource);
+							}
+							catch (Exception ex)
+							{
+								task.ExecutionStatus = TaskExecutionStatus.FailedToPrepare;
+								Logger.Log(ex);
+								throw new UpdateProcessFailedException("Failed to prepare task: " + task.Description, ex);
+							}
+
+							task.ExecutionStatus = TaskExecutionStatus.Prepared;
 						}
 
-						task.ExecutionStatus = TaskExecutionStatus.Prepared;
+						State = UpdateProcessState.Prepared;
 					}
-
-					State = UpdateProcessState.Prepared;
+					finally
+					{
+						OnPrepareComplete(this, EventArgs.Empty);
+					}
 				}
 			}
 		}
@@ -431,66 +467,75 @@ namespace NAppUpdate.Framework
 
 					bool runPrivileged = false, hasColdUpdates = false;
 					State = UpdateProcessState.RollbackRequired;
-					foreach (var task in UpdatesToApply)
+					try
 					{
-						IUpdateTask t = task;
-						task.ProgressDelegate += status => TaskProgressCallback(status, t);
+						OnApplyStarted(this, EventArgs.Empty);
 
-						try
+						foreach (var task in UpdatesToApply)
 						{
-							// Execute the task
-							task.ExecutionStatus = task.Execute(false);
-						}
-						catch (Exception ex)
-						{
-							task.ExecutionStatus = TaskExecutionStatus.Failed; // mark the failing task before rethrowing
-							throw new UpdateProcessFailedException("Update task execution failed: " + task.Description, ex);
-						}
+							IUpdateTask t = task;
+							task.ProgressDelegate += status => TaskProgressCallback(status, t);
 
-						if (task.ExecutionStatus == TaskExecutionStatus.RequiresAppRestart
-						    || task.ExecutionStatus == TaskExecutionStatus.RequiresPrivilegedAppRestart)
-						{
-							// Record that we have cold updates to run, and if required to run any of them privileged
-							runPrivileged = runPrivileged || task.ExecutionStatus == TaskExecutionStatus.RequiresPrivilegedAppRestart;
-							hasColdUpdates = true;
-							continue;
-						}
+							try
+							{
+								// Execute the task
+								task.ExecutionStatus = task.Execute(false);
+							}
+							catch (Exception ex)
+							{
+								task.ExecutionStatus = TaskExecutionStatus.Failed; // mark the failing task before rethrowing
+								throw new UpdateProcessFailedException("Update task execution failed: " + task.Description, ex);
+							}
 
-						// We are being quite explicit here - only Successful return values are considered
-						// to be Ok (cold updates are already handled above)
-						if (task.ExecutionStatus != TaskExecutionStatus.Successful)
-							throw new UpdateProcessFailedException("Update task execution failed: " + task.Description);
+							if (task.ExecutionStatus == TaskExecutionStatus.RequiresAppRestart
+								|| task.ExecutionStatus == TaskExecutionStatus.RequiresPrivilegedAppRestart)
+							{
+								// Record that we have cold updates to run, and if required to run any of them privileged
+								runPrivileged = runPrivileged || task.ExecutionStatus == TaskExecutionStatus.RequiresPrivilegedAppRestart;
+								hasColdUpdates = true;
+								continue;
+							}
+
+							// We are being quite explicit here - only Successful return values are considered
+							// to be Ok (cold updates are already handled above)
+							if (task.ExecutionStatus != TaskExecutionStatus.Successful)
+								throw new UpdateProcessFailedException("Update task execution failed: " + task.Description);
+						}
+					}
+					finally
+					{
+						OnApplyComplete(this, EventArgs.Empty);
 					}
 
 					// If an application restart is required
 					if (hasColdUpdates)
 					{
 						var dto = new NauIpc.NauDto
-						          	{
-						          		Configs = Instance.Config,
-						          		Tasks = Instance.UpdatesToApply,
-						          		AppPath = ApplicationPath,
-						          		WorkingDirectory = Environment.CurrentDirectory,
-						          		RelaunchApplication = relaunchApplication,
-						          		LogItems = Logger.LogItems,
-						          	};
+									{
+										Configs = Instance.Config,
+										Tasks = Instance.UpdatesToApply,
+										AppPath = ApplicationPath,
+										WorkingDirectory = Environment.CurrentDirectory,
+										RelaunchApplication = relaunchApplication,
+										LogItems = Logger.LogItems,
+									};
 
 						NauIpc.ExtractUpdaterFromResource(Config.TempFolder, Instance.Config.UpdateExecutableName);
-                        bool customUpdaterUi = !string.IsNullOrEmpty(Config.CustomUiType);
+						bool customUpdaterUi = !string.IsNullOrEmpty(Config.CustomUiType);
 
 						var info = new ProcessStartInfo
-						           	{
-						           		UseShellExecute = true,
-						           		WorkingDirectory = Environment.CurrentDirectory,
-						           		FileName = Path.Combine(Config.TempFolder, Instance.Config.UpdateExecutableName),
-						           		Arguments =
-						           			string.Format(@"""{0}"" {1} {2} {3}", Config.UpdateProcessName,
-						           			              updaterShowConsole ? "-showConsole" : string.Empty,
-						           			              updaterDoLogging ? "-log" : string.Empty,
-                                                          customUpdaterUi ? string.Format("-customui \"{0}\"",Config.CustomUiType):string.Empty
-                                                          ),
-						           	};
-                        
+									{
+										UseShellExecute = true,
+										WorkingDirectory = Environment.CurrentDirectory,
+										FileName = Path.Combine(Config.TempFolder, Instance.Config.UpdateExecutableName),
+										Arguments =
+											string.Format(@"""{0}"" {1} {2} {3}", Config.UpdateProcessName,
+														  updaterShowConsole ? "-showConsole" : string.Empty,
+														  updaterDoLogging ? "-log" : string.Empty,
+														  customUpdaterUi ? string.Format("-customui \"{0}\"",Config.CustomUiType):string.Empty
+														  ),
+									};
+						
 						if (!(updaterShowConsole || customUpdaterUi))
 						{
 							info.WindowStyle = ProcessWindowStyle.Hidden;
