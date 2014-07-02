@@ -20,17 +20,41 @@ namespace NAppUpdate.Updater
 
 		private static void Main()
 		{
-			//Debugger.Launch();
+#if DEBUG
+			Debugger.Launch();
+#endif
 			string tempFolder = string.Empty;
 			string logFile = string.Empty;
 			_args = ArgumentsParser.Get();
 
 			_logger = UpdateManager.Instance.Logger;
 			_args.ParseCommandLineArgs();
-			if (_args.ShowConsole) {
-				_console = new ConsoleForm();
-				_console.Show();
-			}
+            if (_args.ShowConsole)  // Keep the default console implementation
+            {
+                _console = new ConsoleForm();
+                _console.Show();
+            }
+            else if (!string.IsNullOrEmpty(_args.CustomUiType))
+            {
+                try
+                {
+                    AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
+                    Log("Loading custom UI");
+                    Type uiType = Type.GetType(_args.CustomUiType);
+                    _console = Activator.CreateInstance(uiType) as IUpdaterDisplay;
+                    _console.Show();
+
+                }
+                catch (Exception)
+                {
+                    _console = null;
+                    Log("Failed to show the custom UI");
+                }
+            }
+            else
+            {
+                Log("Skipping UI");
+            }
 
 			Log("Starting to process cold updates...");
 
@@ -193,6 +217,23 @@ namespace NAppUpdate.Updater
 			}
 		}
 
+        static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            string[] assemblyName = args.Name.Split(new char[]{','});
+            string searchFor = Path.Combine(Environment.CurrentDirectory,assemblyName[0]);
+
+            string[] extensions = new string[]{".exe",".dll"};
+            string filename;
+            foreach(string ext in extensions)
+            {
+                filename = searchFor + ext;
+                if(File.Exists(filename))
+                    return Assembly.LoadFile(filename);
+            }
+            
+            return null;
+        }
+
 		private static void SelfCleanUp(string tempFolder)
 		{
 			// Delete the updater EXE and the temp folder
@@ -221,7 +262,7 @@ namespace NAppUpdate.Updater
 			message = string.Format(message, args);
 
 			_logger.Log(severity, message);
-			if (_args.ShowConsole) _console.WriteLine(message);
+			if (_console!= null) _console.WriteLine(message);
 
 			Application.DoEvents();
 		}
@@ -230,7 +271,7 @@ namespace NAppUpdate.Updater
 		{
 			_logger.Log(ex);
 
-			if (_args.ShowConsole) {
+			if (_console != null) {
 				_console.WriteLine("*********************************");
 				_console.WriteLine("   An error has occurred:");
 				_console.WriteLine("   " + ex);
