@@ -25,11 +25,21 @@ namespace NAppUpdate.Updater
 
         public void WriteLine()
         {
+            if (this.InvokeRequired)
+            {
+                this.Invoke((Action<string>)((msg) => WriteLine()), new object[1]{null} );
+                return;
+            }
             rtbConsole.AppendText(Environment.NewLine);
         }
 
         public void WriteLine(string message)
         {
+            if (this.InvokeRequired)
+            {
+                this.Invoke((Action<string>)((msg) => WriteLine(msg)), message);
+                return;
+            }
             rtbConsole.AppendText(message);
             rtbConsole.AppendText(Environment.NewLine);
         }
@@ -67,9 +77,20 @@ namespace NAppUpdate.Updater
             this.KeyPress -= ConsoleForm_KeyPress;
             _keyPresses++;
         }
-
+        public bool RunInApplication
+        {
+            get
+            {
+                return true;
+            }
+        }
         public void WaitForClose()
         {
+            if (this.InvokeRequired)
+            {
+                this.Invoke((Action<object>)((x) => WaitForClose()), new object[1] { null });
+                return;
+            }
             this.ReadKey();
         }
 

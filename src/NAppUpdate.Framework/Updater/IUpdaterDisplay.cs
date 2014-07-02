@@ -7,6 +7,11 @@ namespace NAppUpdate.Framework.Updater
     public interface IUpdaterDisplay
     {
         /// <summary>
+        /// Get whether this display can be run inside an Application (ie it is a form)
+        /// </summary>
+        bool RunInApplication { get; }
+
+        /// <summary>
         /// Show the display - usually this will be opening a Dialog
         /// </summary>
         void Show();

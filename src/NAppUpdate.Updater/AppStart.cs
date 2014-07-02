@@ -17,7 +17,7 @@ namespace NAppUpdate.Updater
 		private static ArgumentsParser _args;
 		private static Logger _logger;
 		private static IUpdaterDisplay _console;
-
+        private static Thread _uiThread;
 		private static void Main()
 		{
 #if DEBUG
@@ -32,7 +32,13 @@ namespace NAppUpdate.Updater
             if (_args.ShowConsole)  // Keep the default console implementation
             {
                 _console = new ConsoleForm();
-                _console.Show();
+                _uiThread = new Thread(_ =>
+                {
+                    _console.Show();
+                    Application.Run();
+                }) { IsBackground = true };
+
+                _uiThread.Start();
             }
             else if (!string.IsNullOrEmpty(_args.CustomUiType))
             {
@@ -41,8 +47,22 @@ namespace NAppUpdate.Updater
                     AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
                     Log("Loading custom UI");
                     Type uiType = Type.GetType(_args.CustomUiType);
+                    
                     _console = Activator.CreateInstance(uiType) as IUpdaterDisplay;
-                    _console.Show();
+                    if (_console.RunInApplication)
+                    {
+                        _uiThread = new Thread(_ =>
+                        {
+                            _console.Show();
+                            Application.Run();
+                        }) { IsBackground = true };
+
+                        _uiThread.Start();
+                    }
+                    else
+                    {
+                        _console.Show();
+                    }
 
                 }
                 catch (Exception)
@@ -202,7 +222,7 @@ namespace NAppUpdate.Updater
 					_logger.Dump(logFile);
 				}
 
-				if (_args.ShowConsole) {
+				if (_console != null) {
 					if (_args.Log) {
 						_console.WriteLine();
 						_console.WriteLine("Log file was saved to {0}", logFile);
@@ -264,7 +284,7 @@ namespace NAppUpdate.Updater
 			_logger.Log(severity, message);
 			if (_console!= null) _console.WriteLine(message);
 
-			Application.DoEvents();
+			//Application.DoEvents();
 		}
 
 		private static void Log(Exception ex)
@@ -281,7 +301,7 @@ namespace NAppUpdate.Updater
 				_console.WriteLine("The updater will close when you close this window.");
 			}
 
-			Application.DoEvents();
+			//Application.DoEvents();
 		}
 	}
 }
