@@ -8,6 +8,7 @@ namespace NAppUpdate.Updater
 		public bool HasArgs { get; private set; }
         public string ProcessName { get; private set; }
 		public bool ShowConsole { get; private set; }
+        public string CustomUiType { get; private set; }
 		public bool Log { get; private set; }
 		public string CallingApp { get; set; }
 
@@ -54,6 +55,17 @@ namespace NAppUpdate.Updater
 				} else if (arg == "showconsole") {
 					this.ShowConsole = true;
 					this.HasArgs = true;
+                } else if (arg == "customui"){
+                    if (i + 1 < arg.Length) // Check that there is at least one more argument
+                    {
+                        this.CustomUiType = args[i + 1].Trim('\"');
+                        this.HasArgs = true;
+                        i++;    // Skip the next argument, it was for us anyway
+                    }
+                    else
+                    {
+                        Console.WriteLine("customui specified with no UI type");
+                    }
 				} else if (this.ProcessName == null) {
                     // if we don't already have the processname set, assume this is it
                     this.ProcessName = args[i];

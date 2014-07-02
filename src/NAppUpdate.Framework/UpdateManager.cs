@@ -476,6 +476,7 @@ namespace NAppUpdate.Framework
 						          	};
 
 						NauIpc.ExtractUpdaterFromResource(Config.TempFolder, Instance.Config.UpdateExecutableName);
+                        bool customUpdaterUi = !string.IsNullOrEmpty(Config.CustomUiType);
 
 						var info = new ProcessStartInfo
 						           	{
@@ -483,12 +484,14 @@ namespace NAppUpdate.Framework
 						           		WorkingDirectory = Environment.CurrentDirectory,
 						           		FileName = Path.Combine(Config.TempFolder, Instance.Config.UpdateExecutableName),
 						           		Arguments =
-						           			string.Format(@"""{0}"" {1} {2}", Config.UpdateProcessName,
+						           			string.Format(@"""{0}"" {1} {2} {3}", Config.UpdateProcessName,
 						           			              updaterShowConsole ? "-showConsole" : string.Empty,
-						           			              updaterDoLogging ? "-log" : string.Empty),
+						           			              updaterDoLogging ? "-log" : string.Empty,
+                                                          customUpdaterUi ? string.Format("-customui \"{0}\"",Config.CustomUiType):string.Empty
+                                                          ),
 						           	};
-
-						if (!updaterShowConsole)
+                        
+						if (!(updaterShowConsole || customUpdaterUi))
 						{
 							info.WindowStyle = ProcessWindowStyle.Hidden;
 							info.CreateNoWindow = true;

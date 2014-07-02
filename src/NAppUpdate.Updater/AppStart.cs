@@ -8,6 +8,7 @@ using NAppUpdate.Framework;
 using NAppUpdate.Framework.Common;
 using NAppUpdate.Framework.Tasks;
 using NAppUpdate.Framework.Utils;
+using NAppUpdate.Framework.Updater;
 
 namespace NAppUpdate.Updater
 {
@@ -15,21 +16,65 @@ namespace NAppUpdate.Updater
 	{
 		private static ArgumentsParser _args;
 		private static Logger _logger;
-		private static ConsoleForm _console;
-
+		private static IUpdaterDisplay _console;
+        private static Thread _uiThread;
 		private static void Main()
 		{
-			//Debugger.Launch();
+#if DEBUG
+			Debugger.Launch();
+#endif
 			string tempFolder = string.Empty;
 			string logFile = string.Empty;
 			_args = ArgumentsParser.Get();
 
 			_logger = UpdateManager.Instance.Logger;
 			_args.ParseCommandLineArgs();
-			if (_args.ShowConsole) {
-				_console = new ConsoleForm();
-				_console.Show();
-			}
+            if (_args.ShowConsole)  // Keep the default console implementation
+            {
+                _console = new ConsoleForm();
+                _uiThread = new Thread(_ =>
+                {
+                    _console.Show();
+                    Application.Run();
+                }) { IsBackground = true };
+
+                _uiThread.Start();
+            }
+            else if (!string.IsNullOrEmpty(_args.CustomUiType))
+            {
+                try
+                {
+                    AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
+                    Log("Loading custom UI");
+                    Type uiType = Type.GetType(_args.CustomUiType);
+                    
+                    _console = Activator.CreateInstance(uiType) as IUpdaterDisplay;
+                    if (_console.RunInApplication)
+                    {
+                        _uiThread = new Thread(_ =>
+                        {
+                            _console.Show();
+                            Application.Run();
+                        }) { IsBackground = true };
+
+                        _uiThread.Start();
+                    }
+                    else
+                    {
+                        _console.Show();
+                    }
+
+                }
+                catch (Exception)
+                {
+                    _console = null;
+                    Log("Failed to show the custom UI");
+                }
+            }
+            else
+            {
+                Log("Skipping UI");
+            }
 
 			Log("Starting to process cold updates...");
 
@@ -128,13 +173,27 @@ namespace NAppUpdate.Updater
 					Log("\tExecuting...");
 
 					// TODO: Better handling on failure: logging, rollbacks
-					try {
-						t.ExecutionStatus = t.Execute(true);
-					} catch (Exception ex) {
-						Log(ex);
-						updateSuccessful = false;
-						t.ExecutionStatus = TaskExecutionStatus.Failed;
-					}
+                    try
+                    {
+                        if (_console != null)
+                        {
+                            t.ProgressDelegate += _console.ReportProgress;
+                        }
+                        t.ExecutionStatus = t.Execute(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(ex);
+                        updateSuccessful = false;
+                        t.ExecutionStatus = TaskExecutionStatus.Failed;
+                    }
+                    finally
+                    {
+                        if (_console != null)
+                        {
+                            t.ProgressDelegate -= _console.ReportProgress;
+                        }
+                    }
 
 					if (t.ExecutionStatus == TaskExecutionStatus.Successful) continue;
 					Log("\tTask execution failed");
@@ -177,7 +236,7 @@ namespace NAppUpdate.Updater
 					_logger.Dump(logFile);
 				}
 
-				if (_args.ShowConsole) {
+				if (_console != null) {
 					if (_args.Log) {
 						_console.WriteLine();
 						_console.WriteLine("Log file was saved to {0}", logFile);
@@ -185,12 +244,29 @@ namespace NAppUpdate.Updater
 					}
 					_console.WriteLine();
 					_console.WriteLine("Press any key or close this window to exit.");
-					_console.ReadKey();
+					_console.WaitForClose();
 				}
 				if (!string.IsNullOrEmpty(tempFolder)) SelfCleanUp(tempFolder);
 				Application.Exit();
 			}
 		}
+
+        static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            string[] assemblyName = args.Name.Split(new char[]{','});
+            string searchFor = Path.Combine(Environment.CurrentDirectory,assemblyName[0]);
+
+            string[] extensions = new string[]{".exe",".dll"};
+            string filename;
+            foreach(string ext in extensions)
+            {
+                filename = searchFor + ext;
+                if(File.Exists(filename))
+                    return Assembly.LoadFile(filename);
+            }
+            
+            return null;
+        }
 
 		private static void SelfCleanUp(string tempFolder)
 		{
@@ -220,16 +296,16 @@ namespace NAppUpdate.Updater
 			message = string.Format(message, args);
 
 			_logger.Log(severity, message);
-			if (_args.ShowConsole) _console.WriteLine(message);
+			if (_console!= null) _console.WriteLine(message);
 
-			Application.DoEvents();
+			//Application.DoEvents();
 		}
 
 		private static void Log(Exception ex)
 		{
 			_logger.Log(ex);
 
-			if (_args.ShowConsole) {
+			if (_console != null) {
 				_console.WriteLine("*********************************");
 				_console.WriteLine("   An error has occurred:");
 				_console.WriteLine("   " + ex);
@@ -239,7 +315,7 @@ namespace NAppUpdate.Updater
 				_console.WriteLine("The updater will close when you close this window.");
 			}
 
-			Application.DoEvents();
+			//Application.DoEvents();
 		}
 	}
 }

@@ -32,6 +32,8 @@ namespace NAppUpdate.Framework.Common
 		}
 		internal string _backupFolder;
 
+        public string CustomUiType { get; set; }
+
 		public string UpdateProcessName { get; set; }
 
 		/// <summary>

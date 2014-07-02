@@ -99,6 +99,7 @@
     <Compile Include="Tasks\UpdateTaskAliasAttribute.cs" />
     <Compile Include="Tasks\UpdateTaskBase.cs" />
     <Compile Include="UpdateManager.cs" />
+    <Compile Include="Updater\IUpdaterDisplay.cs" />
     <Compile Include="Utils\FileChecksum.cs" />
     <Compile Include="Utils\FileDownloader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

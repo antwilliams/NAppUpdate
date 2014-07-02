@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NAppUpdate.Framework.Updater;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -8,7 +9,7 @@ using System.Windows.Forms;
 
 namespace NAppUpdate.Updater
 {
-    public partial class ConsoleForm : Form
+    public partial class ConsoleForm : Form, IUpdaterDisplay
     {
         public ConsoleForm()
         {
@@ -21,13 +22,24 @@ namespace NAppUpdate.Updater
             rtbConsole.Clear();
         }
 
+
         public void WriteLine()
         {
+            if (this.InvokeRequired)
+            {
+                this.Invoke((Action<string>)((msg) => WriteLine()), new object[1]{null} );
+                return;
+            }
             rtbConsole.AppendText(Environment.NewLine);
         }
 
         public void WriteLine(string message)
         {
+            if (this.InvokeRequired)
+            {
+                this.Invoke((Action<string>)((msg) => WriteLine(msg)), message);
+                return;
+            }
             rtbConsole.AppendText(message);
             rtbConsole.AppendText(Environment.NewLine);
         }
@@ -65,6 +77,28 @@ namespace NAppUpdate.Updater
             this.KeyPress -= ConsoleForm_KeyPress;
             _keyPresses++;
         }
+        public bool RunInApplication
+        {
+            get
+            {
+                return true;
+            }
+        }
+        public void WaitForClose()
+        {
+            if (this.InvokeRequired)
+            {
+                this.Invoke((Action<object>)((x) => WaitForClose()), new object[1] { null });
+                return;
+            }
+            this.ReadKey();
+        }
 
+
+
+        public void ReportProgress(Framework.Common.UpdateProgressInfo currentStatus)
+        {
+            
+        }
     }
 }

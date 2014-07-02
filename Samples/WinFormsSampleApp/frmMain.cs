@@ -20,6 +20,9 @@ namespace WinFormsSampleApp
 			UpdateManager updManager = UpdateManager.Instance;
 			updManager.UpdateSource = new SimpleWebSource( /* update feed URL */);
 			updManager.Config.TempFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NAppUpdateWinFormsSample\\Updates");
+
+            updManager.Config.CustomUiType = typeof(CustomUi).AssemblyQualifiedName;
+
 			// If you don't call this method, the updater.exe will continually attempt to connect the named pipe and get stuck.
 			// Therefore you should always implement this method call.
 			updManager.ReinstateIfRestarted();
@@ -132,7 +135,7 @@ namespace WinFormsSampleApp
 				MessageBox.Show("Cannot install updates at the current state, they need to be prepared first. Current state is " + updManager.State.ToString());
 				return;
 			}
-
+            
 			updManager.ApplyUpdates(chkRelaunch.Checked, chkLogging.Checked, chkShowConsole.Checked);
 		}
 
