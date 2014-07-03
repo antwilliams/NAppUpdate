@@ -18,11 +18,38 @@ namespace NAppUpdate.Updater
 		private static Logger _logger;
 		private static IUpdaterDisplay _console;
         private static Thread _uiThread;
+
+        private static void ExecuteWithShadowCopy()
+        {
+            /* Enable shadow copying */
+            var currentInfo = AppDomain.CurrentDomain.SetupInformation;
+            AppDomainSetup newSetup = new AppDomainSetup();
+            newSetup.ConfigurationFile = currentInfo.ConfigurationFile;
+            newSetup.ApplicationBase = currentInfo.ApplicationBase;
+            newSetup.ApplicationName = "Updater";
+            newSetup.ShadowCopyFiles = "true";
+            newSetup.ShadowCopyDirectories = Environment.CurrentDirectory;
+
+            AppDomain newDomain = AppDomain.CreateDomain("UpdaterShadowed", AppDomain.CurrentDomain.Evidence, newSetup);
+            newDomain.ExecuteAssembly(Assembly.GetExecutingAssembly().Location);
+           
+        }
+        
+        [LoaderOptimization(LoaderOptimization.MultiDomainHost)]
 		private static void Main()
 		{
 #if DEBUG
-			Debugger.Launch();
+            Debugger.Launch();
 #endif
+
+            // Check if shadow copying is enabled for this instance, if it isn't then spin off a new AppDomain that is 
+            // enabled for shadow copy
+            if (!AppDomain.CurrentDomain.ShadowCopyFiles)
+            {
+                ExecuteWithShadowCopy();
+                return;
+            }
+
 			string tempFolder = string.Empty;
 			string logFile = string.Empty;
 			_args = ArgumentsParser.Get();
@@ -47,23 +74,15 @@ namespace NAppUpdate.Updater
                     AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
                     Log("Loading custom UI");
                     Type uiType = Type.GetType(_args.CustomUiType);
-                    
-                    _console = Activator.CreateInstance(uiType) as IUpdaterDisplay;
-                    if (_console.RunInApplication)
-                    {
-                        _uiThread = new Thread(_ =>
-                        {
-                            _console.Show();
-                            Application.Run();
-                        }) { IsBackground = true };
 
-                        _uiThread.Start();
-                    }
-                    else
+                    _uiThread = new Thread(_ =>
                     {
+                        _console = Activator.CreateInstance(uiType) as IUpdaterDisplay;
                         _console.Show();
-                    }
+                        Application.Run();
+                    }) { IsBackground = true };
 
+                    _uiThread.Start();
                 }
                 catch (Exception)
                 {
