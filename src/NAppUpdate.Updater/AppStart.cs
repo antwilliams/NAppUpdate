@@ -27,19 +27,20 @@ namespace NAppUpdate.Updater
             newSetup.ConfigurationFile = currentInfo.ConfigurationFile;
             newSetup.ApplicationBase = currentInfo.ApplicationBase;
             newSetup.ApplicationName = "Updater";
+            newSetup.CachePath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "shadow_cache");
             newSetup.ShadowCopyFiles = "true";
             newSetup.ShadowCopyDirectories = Environment.CurrentDirectory;
 
             AppDomain newDomain = AppDomain.CreateDomain("UpdaterShadowed", AppDomain.CurrentDomain.Evidence, newSetup);
             newDomain.ExecuteAssembly(Assembly.GetExecutingAssembly().Location);
-           
+            AppDomain.Unload(newDomain);
         }
         
         [LoaderOptimization(LoaderOptimization.MultiDomainHost)]
 		private static void Main()
 		{
 #if DEBUG
-            Debugger.Launch();
+            //Debugger.Launch();
 #endif
 
             // Check if shadow copying is enabled for this instance, if it isn't then spin off a new AppDomain that is 
@@ -167,7 +168,9 @@ namespace NAppUpdate.Updater
 				if (dto.Tasks == null || dto.Tasks.Count == 0) throw new Exception("Could not find the updates list (or it was empty).");
 
 				Log("Got {0} task objects", dto.Tasks.Count);
-
+#if DEBUG
+                Debugger.Launch();
+#endif
 //This can be handy if you're trying to debug the updater.exe!
 //#if (DEBUG)
 //{  

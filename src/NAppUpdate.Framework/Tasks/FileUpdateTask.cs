@@ -113,9 +113,14 @@ namespace NAppUpdate.Framework.Tasks
 
 				try
 				{
-					if (File.Exists(_destinationFile))
-						File.Delete(_destinationFile);
-					File.Move(_tempFile, _destinationFile);
+                    if (File.Exists(_destinationFile))
+                    {
+                        File.Replace(_tempFile,_destinationFile,null);
+                    }
+                    else
+                    {
+                        File.Move(_tempFile, _destinationFile);
+                    }
 					_tempFile = null;
 				}
 				catch (Exception ex)
