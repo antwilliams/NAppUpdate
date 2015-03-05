@@ -20,22 +20,25 @@ namespace NAppUpdate.Framework.Conditions
         [NauField("what", "Comparison action to perform. Accepted values: above, is, below. Default: below.", false)]
         public string ComparisonType { get; set; }
 
-        #region IUpdateCondition Members
-
         public bool IsMet(Tasks.IUpdateTask task)
         {
-            string localPath = !string.IsNullOrEmpty(LocalPath)
-                                   ? LocalPath
-                                   : Utils.Reflection.GetNauAttribute(task, "LocalPath") as string;
-            if (string.IsNullOrEmpty(localPath) || !File.Exists(localPath))
+            var localPath = !string.IsNullOrEmpty(LocalPath)
+                ? LocalPath
+                : Utils.Reflection.GetNauAttribute(task, "LocalPath") as string;
+
+            // local path is invalid, we can't check for anything so we will return as if the condition was met
+            if (string.IsNullOrEmpty(localPath))
                 return true;
+
+            // if the file doesn't exist it has a null version, and therefore the condition result depends on the ComparisonType
+            if (!File.Exists(localPath))
+                return ComparisonType.Equals("below", StringComparison.InvariantCultureIgnoreCase);
 
         	var versionInfo = FileVersionInfo.GetVersionInfo(localPath);
 			if (versionInfo.FileVersion == null) return true; // perform the update if no version info is found
 			
-			string versionString = versionInfo.FileVersion.Replace(", ", ".");
-            Version localVersion = new Version(versionString);
-            Version updateVersion = Version != null ? new Version(Version) : new Version();
+            var localVersion = new Version(versionInfo.FileMajorPart, versionInfo.FileMinorPart, versionInfo.FileBuildPart, versionInfo.FilePrivatePart);
+            var updateVersion = Version != null ? new Version(Version) : new Version();
 
             switch (ComparisonType)
             {
@@ -47,7 +50,5 @@ namespace NAppUpdate.Framework.Conditions
                     return updateVersion > localVersion;
             }
         }
-
-        #endregion
     }
 }
